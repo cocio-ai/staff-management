@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7-ELEVEN | Staff Management System Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* --- CSS Variables --- */
+        :root {
+            --bg-color: #121212; 
+            --card-bg: #1E1E1E; 
+            --input-bg: #2C2C2C; 
+            --text-main: #E0E0E0;
+            --text-sub: #A0A0A0;
+            --border-color: #333333;
+            --primary: #00813A; 
+            --secondary: #006FB7; 
+            --accent: #F58220; 
+            --danger: #E31D2B; 
+            --success: #00813A; 
+            --font-family: 'Montserrat', sans-serif;
+            --shadow: 0 4px 6px rgba(0,0,0,0.3);
+            --transition: all 0.3s ease;
+        }
+
+        /* --- Global Styles --- */
+        body { font-family: var(--font-family); background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+        .container { width: 100%; max-width: 750px; display: flex; flex-direction: column; gap: 20px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+
+        /* --- UI Elements --- */
+        h1 { font-weight: 700; font-size: 24px; text-align: center; margin: 0 0 10px 0; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 10px; position: relative; }
+        h1::after { content: ''; display: block; width: 150px; height: 3px; background: linear-gradient(90deg, var(--danger) 33.33%, var(--primary) 33.33%, var(--primary) 66.66%, var(--accent) 66.66%); position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); }
+        .title-wrapper { margin-bottom: 30px; }
+
+        .card { background-color: var(--card-bg); border-radius: 12px; padding: 25px; box-shadow: var(--shadow); border: 1px solid var(--border-color); transition: var(--transition); }
+        .card:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.4); border-color: #444; }
+
+        h2 { font-size: 18px; font-weight: 600; color: var(--text-main); margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        h2 i { color: var(--accent); }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; font-size: 14px; color: var(--text-sub); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        label i { font-size: 16px; }
+
+        input, select { width: 100%; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid transparent; border-radius: 8px; color: var(--text-main); font-family: var(--font-family); font-size: 16px; box-sizing: border-box; transition: var(--transition); }
+        input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.2); }
+
+        /* --- Scroll Time Picker Style --- */
+        .time-range { display: flex; align-items: center; gap: 10px; background-color: var(--input-bg); padding: 5px; border-radius: 8px; border: 1px solid transparent; transition: var(--transition); }
+        .time-range:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.2); }
+        .time-range input[type="time"] { flex: 1; padding: 8px; text-align: center; border: none; background: transparent; font-size: 16px; color: var(--text-main); cursor: pointer; }
+        .time-range input[type="time"]:focus { box-shadow: none; }
+        /* iOSのtimeインプット用のデザイン調整 */
+        input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+
+        .radio-group { display: flex; gap: 15px; background: var(--input-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid #444; }
+        .radio-group label { margin: 0; cursor: pointer; color: var(--text-main); font-size: 14px; }
+        .radio-group input[type="radio"] { width: auto; margin-right: 8px; cursor: pointer; accent-color: var(--accent); }
+
+        /* --- Custom Cards --- */
+        .settings-box { background-color: #1A222B; border-color: #2C3E50; }
+        .settings-box h2 i { color: var(--secondary); }
+        .settings-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #34495E; }
+        
+        .staff-selector { background-color: #252525; border-color: #444; }
+        #staffSelect { border: 1px solid #444; font-weight: 600; color: var(--accent); }
+
+        .contract-box { background-color: #21251A; border: 1px solid #3A4A30; }
+        .contract-box h2 i { color: var(--primary); }
+
+        .pto-box { background-color: #2A281E; border: 1px solid #4A432A; }
+        .pto-box h2 i { color: var(--accent); }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+
+        .input-with-unit { display: flex; align-items: center; background-color: var(--input-bg); border-radius: 8px; padding-right: 15px; transition: var(--transition); border: 1px solid transparent; }
+        .input-with-unit:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.2); }
+        .input-with-unit input { border: none; flex-grow: 1; padding: 12px; background: transparent; }
+        .input-with-unit span { font-size: 14px; color: var(--text-sub); font-weight: 600; user-select: none; }
+
+        .monthly-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; }
+        .month-cell { background-color: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid #2A2A2A; text-align: center; transition: var(--transition); }
+        .month-cell:hover { background-color: rgba(255,255,255,0.06); border-color: #333; transform: translateY(-3px); }
+        .month-cell label { justify-content: center; color: var(--primary); font-size: 13px; margin-bottom: 10px; }
+        .month-cell .input-with-unit { justify-content: center; background-color: rgba(0,0,0,0.2); }
+        .month-cell input { width: 50px; text-align: right; font-weight: 700; color: var(--text-main); padding: 8px; font-size: 16px; }
+
+        /* --- Buttons --- */
+        .main-buttons { display: flex; gap: 15px; margin-top: 10px; margin-bottom: 30px; }
+        button { display: flex; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; transition: var(--transition); font-family: var(--font-family); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .btn-save { background: linear-gradient(135deg, #007CC3, var(--secondary)); color: white; }
+        .btn-save:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 5px 15px rgba(0, 111, 183, 0.4); }
+        .btn-calc { background: linear-gradient(135deg, #009645, var(--primary)); color: white; }
+        .btn-calc:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 5px 15px rgba(0, 129, 58, 0.4); }
+        .btn-delete { background: linear-gradient(135deg, #F03541, var(--danger)); color: white; font-size: 14px; padding: 10px 20px; }
+        .btn-export { background: linear-gradient(135deg, #78909C, #546E7A); color: white; width: 100%; margin-top: 10px; }
+        .danger-zone { margin-top: 20px; display: flex; justify-content: flex-end; border-top: 1px dashed var(--border-color); padding-top: 20px; }
+
+        /* --- Result Area --- */
+        #resultArea { margin-top: 10px; display: none; }
+        .result-card h2 { border-color: #333; }
+        .result-card h2 i { color: var(--secondary); }
+        .result-details { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; }
+        .detail-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2A2A2A; padding-bottom: 8px; font-size: 15px; }
+        .detail-item strong { color: var(--text-sub); font-weight: 600; }
+        .detail-item span { font-weight: 700; color: var(--text-main); }
+        .detail-item .value { font-size: 18px; color: var(--accent); }
+        
+        .breakdown-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-top: 5px; font-size: 14px; color: #BBB; border-left: 3px solid var(--secondary);}
+        .breakdown-box span { color: var(--text-main); font-weight: 700; }
+
+        .alerts-section { display: flex; flex-direction: column; gap: 15px; }
+        .alert-item { padding: 15px; border-radius: 8px; font-size: 14px; font-weight: 600; line-height: 1.6; display: flex; align-items: flex-start; gap: 12px; }
+        .alert-item i { font-size: 18px; margin-top: 2px; }
+        .alert-danger { background-color: rgba(227, 29, 43, 0.1); color: #FF8A8A; border: 1px solid rgba(227, 29, 43, 0.3); }
+        .alert-warning { background-color: rgba(245, 130, 32, 0.1); color: #FFC08A; border: 1px solid rgba(245, 130, 32, 0.3); }
+        .alert-success { background-color: rgba(0, 129, 58, 0.1); color: #8AFF8A; border: 1px solid rgba(0, 129, 58, 0.3); }
+
+        .result-success-text { color: var(--success); font-weight: 700; }
+        .result-alert-text { color: var(--danger); font-weight: 700; }
+
+        .data-management { margin-top: 30px; text-align: center; }
+        .data-management h3 { color: var(--text-sub); font-size: 15px; margin: 0 0 10px 0; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="container fade-in">
+    <div class="title-wrapper">
+        <h1><i class="fas fa-convenience-store"></i> Staff Management System Pro</h1>
+    </div>
+
+    <div class="card settings-box">
+        <h2><i class="fas fa-cogs"></i> 店舗ルール設定（全スタッフ共通）</h2>
+        
+        <div class="settings-grid">
+            <div>
+                <label><i class="fas fa-sun" style="color: #A5D6A7;"></i> 早朝の定義 (時間帯)</label>
+                <div class="time-range">
+                    <input type="time" id="storeEarlyTimeStart" value="06:00">
+                    <span style="color: var(--text-sub);">〜</span>
+                    <input type="time" id="storeEarlyTimeEnd" value="09:00">
+                </div>
+            </div>
+            <div>
+                <label for="storeEarlyBonus">早朝手当 (加算額)</label>
+                <div class="input-with-unit">
+                    <input type="number" id="storeEarlyBonus" placeholder="30" min="0">
+                    <span>円</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-grid" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+            <div>
+                <label><i class="fas fa-moon" style="color: #90CAF9;"></i> 深夜の定義 (時間帯)</label>
+                <div class="time-range">
+                    <input type="time" id="storeNightTimeStart" value="22:00">
+                    <span style="color: var(--text-sub);">〜</span>
+                    <input type="time" id="storeNightTimeEnd" value="06:00">
+                </div>
+            </div>
+            <div>
+                <label>深夜時給の計算方式</label>
+                <div class="radio-group" style="margin-bottom: 10px;">
+                    <label><input type="radio" name="nightCalcMethod" value="multiplier" checked onchange="toggleNightCalc()"> 倍率 (労基法準拠)</label>
+                    <label><input type="radio" name="nightCalcMethod" value="fixed" onchange="toggleNightCalc()"> 固定加算額</label>
+                </div>
+                
+                <div id="nightMultiplierField" class="input-with-unit">
+                    <input type="number" id="storeNightMultiplier" placeholder="1.25" min="1" step="0.01">
+                    <span>倍</span>
+                </div>
+                <div id="nightBonusField" class="input-with-unit hidden">
+                    <input type="number" id="storeNightBonus" placeholder="250" min="0">
+                    <span>円</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card staff-selector">
+        <label for="staffSelect"><i class="fas fa-users"></i> スタッフの呼び出し</label>
+        <select id="staffSelect" onchange="loadStaffData()">
+            <option value="new">＋ 新規スタッフを登録する</option>
+        </select>
+    </div>
+    
+    <div class="card">
+        <h2><i class="fas fa-id-card"></i> 基本情報</h2>
+        <div class="grid-2">
+            <div>
+                <label for="staffName"><i class="fas fa-user" style="color: var(--primary);"></i> 氏名</label>
+                <input type="text" id="staffName" placeholder="例: 田中太郎">
+            </div>
+            <div>
+                <label for="hireDate"><i class="fas fa-calendar-alt" style="color: var(--primary);"></i> 入社年月日</label>
+                <input type="date" id="hireDate">
+            </div>
+        </div>
+    </div>
+
+    <div class="card contract-box">
+        <h2><i class="fas fa-file-contract"></i> 契約内容</h2>
+        
+        <div class="form-group">
+            <label><i class="fas fa-briefcase" style="color: var(--primary);"></i> 雇用形態</label>
+            <div class="radio-group">
+                <label><input type="radio" name="staffType" value="hourly" checked onchange="toggleStaffType()"> 時給（アルバイト・パート）</label>
+                <label><input type="radio" name="staffType" value="salaried" onchange="toggleStaffType()"> 固定給（社員・店長など）</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="prescribedDays"><i class="fas fa-calendar-check" style="color: var(--primary);"></i> 週契約日数（有給算定に必要）</label>
+            <div class="input-with-unit" style="max-width: 250px;">
+                <select id="prescribedDays">
+                    <option value="" disabled selected>-</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <span>日 / 週</span>
+            </div>
+        </div>
+
+        <div id="hourlyFields" class="fade-in">
+            <div class="grid-2">
+                <div>
+                    <label for="hourlyWage"><i class="fas fa-yen-sign" style="color: var(--primary);"></i> 基本時給</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="hourlyWage" placeholder="1050" min="0">
+                        <span>円</span>
+                    </div>
+                </div>
+                <div>
+                    <label for="weeklyHours"><i class="fas fa-clock" style="color: var(--primary);"></i> 週の合計時間</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="weeklyHours" placeholder="20" min="0" step="0.1">
+                        <span>時間</span>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-2" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #4A5D3E;">
+                <div>
+                    <label for="earlyHours" style="color: #A5D6A7;"><i class="fas fa-sun"></i> うち早朝時間 (<span id="labelEarlyTime">06:00〜09:00</span>)</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="earlyHours" placeholder="0" min="0" step="0.1">
+                        <span>時間 / 週</span>
+                    </div>
+                </div>
+                <div>
+                    <label for="nightHours" style="color: #90CAF9;"><i class="fas fa-moon"></i> うち深夜時間 (<span id="labelNightTime">22:00〜翌06:00</span>)</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="nightHours" placeholder="0" min="0" step="0.1">
+                        <span>時間 / 週</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="salariedFields" class="hidden fade-in" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #4A5D3E;">
+            <label for="fixedSalary"><i class="fas fa-money-bill-wave" style="color: var(--primary);"></i> 固定月給（基本給）</label>
+            <div class="input-with-unit" style="max-width: 250px;">
+                <input type="number" id="fixedSalary" placeholder="250000" min="0">
+                <span>円 / 月</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card pto-box">
+        <h2><i class="fas fa-umbrella-beach"></i> 有給保有・消化状況</h2>
+        <div class="grid-2">
+            <div>
+                <label for="currentPto"><i class="fas fa-piggy-bank" style="color: var(--accent);"></i> 現時点の有給「残日数」</label>
+                <div class="input-with-unit">
+                    <input type="number" id="currentPto" placeholder="0" min="0" step="0.5">
+                    <span>日</span>
+                </div>
+            </div>
+            <div>
+                <label for="consumedPto"><i class="fas fa-calendar-minus" style="color: var(--accent);"></i> 今期の「消化済み」日数</label>
+                <div class="input-with-unit">
+                    <input type="number" id="consumedPto" placeholder="0" min="0" step="0.5">
+                    <span>日</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2><i class="fas fa-calendar-grid-5"></i> 2026年の出勤実績（有給判定用）</h2>
+        <div class="monthly-grid" id="attendanceGrid"></div>
+    </div>
+
+    <div class="main-buttons">
+        <button class="btn-save" onclick="saveStaffData()"><i class="fas fa-save"></i> 保存・更新</button>
+        <button class="btn-calc" onclick="calculate()"><i class="fas fa-calculator"></i> 計算実行</button>
+    </div>
+
+    <div id="resultArea"></div>
+
+    <div class="danger-zone" id="deleteArea" style="display: none;">
+        <button class="btn-delete" onclick="deleteStaff()"><i class="fas fa-user-slash"></i> 退職(削除)にする</button>
+    </div>
+
+    <div class="data-management">
+        <h3><i class="fas fa-database"></i> DATA MANAGEMENT</h3>
+        <button class="btn-export" onclick="exportCSV()"><i class="fas fa-file-csv"></i> 全データをCSVでバックアップ</button>
+    </div>
+</div>
+
+<script>
+    // データベース設定 (時間のデータ構造が変わるためバージョンアップ)
+    const DB_NAME = 'sevenStaffDB_v11'; 
+    const STORE_SETTINGS_KEY = 'sevenStoreSettings_v3';
+    let staffDatabase = JSON.parse(localStorage.getItem(DB_NAME)) || [];
+    let currentStaffId = null;
+    const targetYear = 2026;
+
+    window.onload = () => {
+        loadStoreSettings();
+        generateAttendanceGrid();
+        updateStaffDropdown();
+        attachStoreSettingsListeners();
+        toggleStaffType(); 
+        toggleNightCalc();
+    };
+
+    // --- 「翌日」自動判定フォーマット関数 ---
+    function formatTimeStr(start, end) {
+        if (!start || !end) return "未設定";
+        let startHour = parseInt(start.split(':')[0], 10);
+        let endHour = parseInt(end.split(':')[0], 10);
+        // 終わりの時間が始まりの時間より小さい場合（例: 22時〜6時）、自動で「翌」をつける
+        let prefix = (endHour < startHour) ? "翌" : "";
+        return `${start}〜${prefix}${end}`;
+    }
+
+    // --- 店舗設定管理 ---
+    function loadStoreSettings() {
+        const defaultSettings = { 
+            earlyStart: "06:00", earlyEnd: "09:00", earlyBonus: 30, 
+            nightStart: "22:00", nightEnd: "06:00", nightCalcMethod: "multiplier", nightMultiplier: 1.25, nightBonus: 250 
+        };
+        const settings = JSON.parse(localStorage.getItem(STORE_SETTINGS_KEY)) || defaultSettings;
+        
+        document.getElementById('storeEarlyTimeStart').value = settings.earlyStart;
+        document.getElementById('storeEarlyTimeEnd').value = settings.earlyEnd;
+        document.getElementById('storeEarlyBonus').value = settings.earlyBonus;
+        
+        document.getElementById('storeNightTimeStart').value = settings.nightStart;
+        document.getElementById('storeNightTimeEnd').value = settings.nightEnd;
+        document.querySelector(`input[name="nightCalcMethod"][value="${settings.nightCalcMethod}"]`).checked = true;
+        document.getElementById('storeNightMultiplier').value = settings.nightMultiplier;
+        document.getElementById('storeNightBonus').value = settings.nightBonus;
+        
+        updateLabels(settings.earlyStart, settings.earlyEnd, settings.nightStart, settings.nightEnd);
+    }
+
+    function toggleNightCalc() {
+        const method = document.querySelector('input[name="nightCalcMethod"]:checked').value;
+        if (method === 'multiplier') {
+            document.getElementById('nightMultiplierField').classList.remove('hidden');
+            document.getElementById('nightBonusField').classList.add('hidden');
+        } else {
+            document.getElementById('nightMultiplierField').classList.add('hidden');
+            document.getElementById('nightBonusField').classList.remove('hidden');
+        }
+        saveStoreSettings();
+    }
+
+    function saveStoreSettings() {
+        const earlyStart = document.getElementById('storeEarlyTimeStart').value;
+        const earlyEnd = document.getElementById('storeEarlyTimeEnd').value;
+        const nightStart = document.getElementById('storeNightTimeStart').value;
+        const nightEnd = document.getElementById('storeNightTimeEnd').value;
+
+        const settings = {
+            earlyStart: earlyStart,
+            earlyEnd: earlyEnd,
+            earlyBonus: parseFloat(document.getElementById('storeEarlyBonus').value) || 0,
+            nightStart: nightStart,
+            nightEnd: nightEnd,
+            nightCalcMethod: document.querySelector('input[name="nightCalcMethod"]:checked').value,
+            nightMultiplier: parseFloat(document.getElementById('storeNightMultiplier').value) || 1.0,
+            nightBonus: parseFloat(document.getElementById('storeNightBonus').value) || 0
+        };
+        localStorage.setItem(STORE_SETTINGS_KEY, JSON.stringify(settings));
+        updateLabels(earlyStart, earlyEnd, nightStart, nightEnd);
+    }
+
+    function updateLabels(eStart, eEnd, nStart, nEnd) {
+        document.getElementById('labelEarlyTime').textContent = formatTimeStr(eStart, eEnd);
+        document.getElementById('labelNightTime').textContent = formatTimeStr(nStart, nEnd);
+    }
+
+    function attachStoreSettingsListeners() {
+        const timeInputs = [
+            'storeEarlyTimeStart', 'storeEarlyTimeEnd', 'storeEarlyBonus', 
+            'storeNightTimeStart', 'storeNightTimeEnd', 'storeNightMultiplier', 'storeNightBonus'
+        ];
+        timeInputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', saveStoreSettings);
+        });
+    }
+
+    // --- UI切り替え ---
+    function toggleStaffType() {
+        const type = document.querySelector('input[name="staffType"]:checked').value;
+        const hourlyFields = document.getElementById('hourlyFields');
+        const salariedFields = document.getElementById('salariedFields');
+        
+        if (type === 'hourly') {
+            hourlyFields.classList.remove('hidden'); salariedFields.classList.add('hidden');
+        } else {
+            hourlyFields.classList.add('hidden'); salariedFields.classList.remove('hidden');
+        }
+    }
+
+    function generateAttendanceGrid() {
+        const grid = document.getElementById('attendanceGrid');
+        grid.innerHTML = '';
+        for (let i = 1; i <= 12; i++) {
+            const div = document.createElement('div');
+            div.className = 'month-cell';
+            div.innerHTML = `<label><i class="fas fa-calendar-day"></i> ${i}月</label><div class="input-with-unit"><input type="number" id="month_${targetYear}-${String(i).padStart(2, '0')}" min="0" max="31"><span>日</span></div>`;
+            grid.appendChild(div);
+        }
+    }
+
+    function updateStaffDropdown() {
+        const select = document.getElementById('staffSelect');
+        select.innerHTML = '<option value="new">＋ 新規スタッフを登録する</option>';
+        staffDatabase.forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.id; option.textContent = staff.name;
+            select.appendChild(option);
+        });
+        document.getElementById('deleteArea').style.display = currentStaffId ? 'flex' : 'none';
+        if (currentStaffId) select.value = currentStaffId;
+    }
+
+    // --- データ管理 ---
+    function loadStaffData() {
+        const selectValue = document.getElementById('staffSelect').value;
+        document.getElementById('resultArea').style.display = 'none';
+        
+        if (selectValue === 'new') {
+            currentStaffId = null; clearForm();
+        } else {
+            currentStaffId = selectValue;
+            const staff = staffDatabase.find(s => s.id === currentStaffId);
+            if (staff) {
+                document.getElementById('staffName').value = staff.name || '';
+                document.getElementById('hireDate').value = staff.hireDate || '';
+                document.getElementById('prescribedDays').value = staff.prescribedDays || '';
+                
+                const type = staff.staffType || 'hourly';
+                document.querySelector(`input[name="staffType"][value="${type}"]`).checked = true;
+                toggleStaffType();
+
+                document.getElementById('hourlyWage').value = staff.hourlyWage || '';
+                document.getElementById('weeklyHours').value = staff.weeklyHours || '';
+                document.getElementById('earlyHours').value = staff.earlyHours || ''; 
+                document.getElementById('nightHours').value = staff.nightHours || ''; 
+                document.getElementById('fixedSalary').value = staff.fixedSalary || ''; 
+                
+                document.getElementById('currentPto').value = staff.currentPto || '';
+                document.getElementById('consumedPto').value = staff.consumedPto || '';
+                
+                const attendance = staff.attendance || {};
+                for (let i = 1; i <= 12; i++) {
+                    document.getElementById(`month_${targetYear}-${String(i).padStart(2, '0')}`).value = attendance[`${targetYear}-${String(i).padStart(2, '0')}`] || '';
+                }
+            }
+        }
+        updateStaffDropdown();
+    }
+
+    function saveStaffData() {
+        const nameInput = document.getElementById('staffName');
+        const name = nameInput.value.trim();
+        if (!name) { alert("氏名を入力してください。"); nameInput.focus(); return; }
+        
+        const attendanceData = {};
+        for (let i = 1; i <= 12; i++) {
+            const key = `${targetYear}-${String(i).padStart(2, '0')}`;
+            const val = document.getElementById('month_' + key).value;
+            if (val !== '') attendanceData[key] = parseInt(val);
+        }
+        
+        const staffType = document.querySelector('input[name="staffType"]:checked').value;
+        const id = currentStaffId || Date.now().toString();
+        
+        const staffData = {
+            id, name,
+            hireDate: document.getElementById('hireDate').value,
+            staffType: staffType,
+            prescribedDays: document.getElementById('prescribedDays').value,
+            hourlyWage: document.getElementById('hourlyWage').value,
+            weeklyHours: document.getElementById('weeklyHours').value,
+            earlyHours: document.getElementById('earlyHours').value, 
+            nightHours: document.getElementById('nightHours').value, 
+            fixedSalary: document.getElementById('fixedSalary').value,
+            currentPto: document.getElementById('currentPto').value,
+            consumedPto: document.getElementById('consumedPto').value,
+            attendance: attendanceData
+        };
+        
+        if (!currentStaffId) staffDatabase.push(staffData);
+        else {
+            const idx = staffDatabase.findIndex(s => s.id === currentStaffId);
+            staffDatabase[idx] = staffData;
+        }
+        
+        currentStaffId = id;
+        localStorage.setItem(DB_NAME, JSON.stringify(staffDatabase));
+        alert(`${name} さんの情報を保存しました。`);
+        updateStaffDropdown();
+    }
+
+    function clearForm() {
+        document.getElementById('staffName').value = '';
+        document.getElementById('hireDate').value = '';
+        document.querySelector('input[name="staffType"][value="hourly"]').checked = true;
+        toggleStaffType();
+        document.getElementById('prescribedDays').value = '';
+        document.getElementById('hourlyWage').value = '';
+        document.getElementById('weeklyHours').value = '';
+        document.getElementById('earlyHours').value = '';
+        document.getElementById('nightHours').value = '';
+        document.getElementById('fixedSalary').value = '';
+        document.getElementById('currentPto').value = '';
+        document.getElementById('consumedPto').value = '';
+        for (let i = 1; i <= 12; i++) {
+            const inputEl = document.getElementById(`month_${targetYear}-${String(i).padStart(2, '0')}`);
+            if (inputEl) inputEl.value = '';
+        }
+    }
+
+    function deleteStaff() {
+        if (!currentStaffId) return;
+        const staff = staffDatabase.find(s => s.id === currentStaffId);
+        if (!confirm(`本当に ${staff.name} さんを退職扱い(システム削除)にしますか？`)) return;
+        staffDatabase = staffDatabase.filter(s => s.id !== currentStaffId);
+        localStorage.setItem(DB_NAME, JSON.stringify(staffDatabase));
+        alert(`${staff.name} さんのデータを削除しました。`);
+        currentStaffId = null; clearForm(); updateStaffDropdown();
+    }
+
+    // --- メイン計算処理 ---
+    function calculate() {
+        const hireDateStr = document.getElementById("hireDate").value;
+        const staffType = document.querySelector('input[name="staffType"]:checked').value;
+        const prescribedDays = parseInt(document.getElementById("prescribedDays").value) || 0;
+        const currentPto = parseFloat(document.getElementById("currentPto").value) || 0;
+        const consumedPto = parseFloat(document.getElementById("consumedPto").value) || 0;
+        
+        if (!hireDateStr || !prescribedDays) { 
+            alert("有給判定のため、「入社年月日」と「週契約日数」は必須です。"); return; 
+        }
+
+        let monthlySalary = 0;
+        let breakdownHTML = "";
+
+        // 人件費計算
+        if (staffType === 'hourly') {
+            const baseHourlyWage = parseInt(document.getElementById("hourlyWage").value) || 0;
+            const weeklyHours = parseFloat(document.getElementById("weeklyHours").value) || 0;
+            const earlyHours = parseFloat(document.getElementById("earlyHours").value) || 0;
+            const nightHours = parseFloat(document.getElementById("nightHours").value) || 0;
+
+            if (!baseHourlyWage || !weeklyHours) {
+                alert("時給スタッフの場合、「基本時給」と「週の合計時間」は必須です。"); return;
+            }
+
+            const regularHours = weeklyHours - earlyHours - nightHours;
+            if (regularHours < 0) {
+                alert("エラー：早朝時間と深夜時間の合計が、週の合計時間を超えています。"); return;
+            }
+
+            // 店舗設定の取得とフォーマット
+            const eStart = document.getElementById('storeEarlyTimeStart').value;
+            const eEnd = document.getElementById('storeEarlyTimeEnd').value;
+            const nStart = document.getElementById('storeNightTimeStart').value;
+            const nEnd = document.getElementById('storeNightTimeEnd').value;
+            
+            const storeEarlyTimeFormatted = formatTimeStr(eStart, eEnd);
+            const storeNightTimeFormatted = formatTimeStr(nStart, nEnd);
+            
+            const storeEarlyBonus = parseFloat(document.getElementById("storeEarlyBonus").value) || 0;
+            const nightCalcMethod = document.querySelector('input[name="nightCalcMethod"]:checked').value;
+            
+            // 時給の決定
+            const earlyHourlyWage = baseHourlyWage + storeEarlyBonus;
+            let nightHourlyWage = baseHourlyWage;
+            let nightMethodText = "";
+            
+            if (nightCalcMethod === 'multiplier') {
+                const storeNightMultiplier = parseFloat(document.getElementById("storeNightMultiplier").value) || 1.0;
+                nightHourlyWage = Math.round(baseHourlyWage * storeNightMultiplier);
+                nightMethodText = `(倍率: x${storeNightMultiplier})`;
+            } else {
+                const storeNightBonus = parseFloat(document.getElementById("storeNightBonus").value) || 0;
+                nightHourlyWage = baseHourlyWage + storeNightBonus;
+                nightMethodText = `(加算: +${storeNightBonus}円)`;
+            }
+
+            const weeksPerMonth = 52 / 12; 
+            const weeklySalary = (regularHours * baseHourlyWage) + (earlyHours * earlyHourlyWage) + (nightHours * nightHourlyWage);
+            monthlySalary = Math.round(weeklySalary * weeksPerMonth);
+
+            breakdownHTML = `
+                <div class="breakdown-box">
+                    <div style="margin-bottom: 8px;"><i class="fas fa-info-circle"></i> <strong>【時給内訳と適用ルール】</strong></div>
+                    <div style="margin-bottom: 4px;">■ 基本: <span>${baseHourlyWage}円</span> (${regularHours}h/週)</div>
+                    <div style="margin-bottom: 4px; color: #A5D6A7;">■ 早朝: <span>${earlyHourlyWage}円</span> (${earlyHours}h/週) <span style="font-size:11px; color:#888;">[${storeEarlyTimeFormatted}]</span></div>
+                    <div style="color: #90CAF9;">■ 深夜: <span>${nightHourlyWage}円</span> (${nightHours}h/週) <span style="font-size:11px; color:#888;">[${storeNightTimeFormatted}] ${nightMethodText}</span></div>
+                </div>`;
+
+        } else {
+            monthlySalary = parseInt(document.getElementById("fixedSalary").value) || 0;
+            if (!monthlySalary) { alert("固定給スタッフの場合、「固定月給」は必須です。"); return; }
+            breakdownHTML = `<div class="breakdown-box"><i class="fas fa-check-circle"></i> 社員・固定給スタッフのため、時給計算や年収の壁(103万/130万等)の対象外です。</div>`;
+        }
+
+        const annualSalary = monthlySalary * 12;
+
+        // 有給判定
+        const hireDate = new Date(hireDateStr);
+        let actualDays = 0;
+        let displayTargetMonthsStr = "";
+        
+        for (let i = 0; i < 6; i++) {
+            let d = new Date(hireDate.getFullYear(), hireDate.getMonth() + i, 1);
+            let key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            actualDays += parseInt(document.getElementById('month_' + key)?.value || 0);
+            displayTargetMonthsStr += (i==0?"":", ") + (d.getMonth() + 1) + "月";
+        }
+        
+        const grantDate = new Date(hireDate); grantDate.setMonth(grantDate.getMonth() + 6);
+        const deadlineDate = new Date(grantDate); deadlineDate.setFullYear(deadlineDate.getFullYear() + 1); deadlineDate.setDate(deadlineDate.getDate() - 1);
+        const totalPrescribedDays = prescribedDays * 26; 
+        let attendanceRate = totalPrescribedDays > 0 ? actualDays / totalPrescribedDays : 0;
+        
+        const ptoTable = [0, 1, 3, 5, 7, 10, 10]; 
+        let grantedDays = (attendanceRate >= 0.8) ? ptoTable[Math.min(prescribedDays, 6)] : 0;
+        let totalPtoBalance = currentPto + grantedDays;
+
+        // アラート生成
+        let alertsHTML = "";
+        if (grantedDays >= 10) {
+            let remain = 5 - consumedPto;
+            if (remain > 0) {
+                alertsHTML += `<div class='alert-item alert-danger fade-in'><i class="fas fa-exclamation-triangle"></i><div>[労働基準法違反のリスク]<br>10日以上の有給付与対象者です。期限【 ${deadlineDate.toLocaleDateString()} 】までに、あと【 ${remain} 日 】の有休消化が必要です。</div></div>`;
+            } else {
+                alertsHTML += `<div class='alert-item alert-success fade-in'><i class="fas fa-check-circle"></i>✅ 有休消化義務(5日)をクリアしています。</div>`;
+            }
+        }
+        
+        if (staffType === 'hourly') {
+            if (annualSalary >= 1230000 && annualSalary < 1300000) alertsHTML += `<div class='alert-item alert-warning fade-in'><i class="fas fa-percent"></i><div>[税金の壁] 年収予測が約123万円です。<br>学生扶養控除枠または配偶者特別控除の壁を超過し、世帯の手取りが減る可能性があります。</div></div>`;
+            if (annualSalary >= 1300000) alertsHTML += `<div class='alert-item alert-danger fade-in'><i class="fas fa-heartbeat"></i><div>[社保の壁] 年収予測が130万円を超過しています。<br>社会保険の扶養から外れ、自身で保険料を支払う必要が生じる可能性が非常に高いです。</div></div>`;
+        }
+
+        const resEl = document.getElementById("resultArea");
+        resEl.style.display = "block";
+        
+        resEl.innerHTML = `
+            <div class="card result-card fade-in">
+                <h2><i class="fas fa-chart-line"></i> 計算・判定結果</h2>
+                
+                <div class="result-details">
+                    <div class="detail-item">
+                        <strong>有給基準日 (付与日)</strong>
+                        <span><i class="fas fa-calendar-star"></i> ${grantDate.toLocaleDateString()}</span>
+                    </div>
+                    <div class="detail-item" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-top: 5px;">
+                        <strong style="color:var(--text-main);">今回の有給付与判定</strong>
+                        ${grantedDays > 0 ? `<span class='result-success-text'><i class="fas fa-thumbs-up"></i> ${grantedDays}日 付与</span>` : `<span class='result-alert-text'><i class="fas fa-times-circle"></i> 付与なし</span>`}
+                    </div>
+                    <div class="detail-item" style="font-size:12px; border:none; padding-bottom:5px; padding-top:0;">
+                        <strong>(判定根拠: 対象期間 ${displayTargetMonthsStr})</strong>
+                        <span style="color:#777;">出勤率: ${(attendanceRate*100).toFixed(1)}%</span>
+                    </div>
+                    <div class="detail-item" style="border-bottom: 2px solid #444; padding-bottom: 15px; margin-top: 10px;">
+                        <strong>次回の「総」有給保有日数 <br><span style="font-size:12px; font-weight:normal; color:#888;">(残 ${currentPto}日 ＋ 付与 ${grantedDays}日)</span></strong>
+                        <span style="color:var(--accent); font-size: 18px; font-weight: 700;">${totalPtoBalance} 日</span>
+                    </div>
+                    
+                    ${breakdownHTML}
+                    
+                    <div class="detail-item" style="margin-top: 10px;">
+                        <strong>月間人件費 (推定)</strong>
+                        <span class="value">${monthlySalary.toLocaleString()} 円</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>年間人件費 (累計予測)</strong>
+                        <span class="value">${annualSalary.toLocaleString()} 円</span>
+                    </div>
+                </div>
+                
+                ${alertsHTML ? `<div class="alerts-section">${alertsHTML}</div>` : `<div class="alert-item alert-success fade-in"><i class="fas fa-check-circle"></i> 法令基準・年収の壁に関する警告はありません。</div>`}
+            </div>
+        `;
+        resEl.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function exportCSV() {
+        if (staffDatabase.length === 0) { alert("データがありません。"); return; }
+        
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); 
+        let csvContent = "名前,雇用形態,入社日,週契約日数,基本時給,週合計時間,うち早朝時間,うち深夜時間,固定月給,現在の有給残日数,今期有休消化済,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月\n";
+        
+        staffDatabase.forEach(s => {
+            const typeLabel = s.staffType === 'salaried' ? '固定給' : '時給';
+            let row = [
+                `"${s.name}"`, typeLabel, `"${s.hireDate}"`, s.prescribedDays, 
+                (s.hourlyWage || ""), (s.weeklyHours || ""), (s.earlyHours || ""), (s.nightHours || ""), (s.fixedSalary || ""),
+                (s.currentPto || 0), (s.consumedPto || 0)
+            ];
+            for (let i = 1; i <= 12; i++) {
+                const key = `${targetYear}-${String(i).padStart(2, '0')}`;
+                row.push(s.attendance[key] || "");
+            }
+            csvContent += row.join(",") + "\n";
+        });
+        
+        const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+        link.setAttribute("href", url);
+        link.setAttribute("download", `staff_management_${dateStr}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
