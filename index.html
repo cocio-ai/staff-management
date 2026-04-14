@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>7-ELEVEN | Staff Management System Pro (データ復元版)</title>
+    <title>7-ELEVEN | Staff Management System Pro (出勤率表示版)</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -40,12 +40,17 @@
         .input-with-unit { display: flex; align-items: center; background-color: var(--input-bg); border-radius: 8px; padding-right: 15px; border: 1px solid transparent; }
         .input-with-unit input { border: none; flex-grow: 1; padding: 12px; background: transparent; }
         .input-with-unit span { font-size: 14px; color: var(--text-sub); font-weight: 600; }
+        
         .monthly-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; }
         .month-cell { background-color: rgba(255,255,255,0.03); padding: 12px 10px; border-radius: 8px; border: 1px solid #2A2A2A; text-align: center; }
         .month-cell label { justify-content: center; color: var(--primary); font-size: 13px; margin-bottom: 2px; }
         .month-cell .date-range { font-size: 11px; color: #888; margin-bottom: 8px; letter-spacing: -0.5px;}
         .month-cell .input-with-unit { justify-content: center; background-color: rgba(0,0,0,0.2); }
         .month-cell input { width: 45px; text-align: right; font-weight: 700; color: var(--text-main); padding: 8px 5px; font-size: 16px; }
+        
+        /* 出勤率表示用のスタイル */
+        .attendance-rate { font-size: 12px; font-weight: bold; margin-top: 8px; color: var(--text-sub); }
+
         .main-buttons { display: flex; gap: 15px; margin-top: 10px; margin-bottom: 30px; }
         button { display: flex; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; color: white; }
         .btn-save { background: linear-gradient(135deg, #007CC3, var(--secondary)); }
@@ -70,7 +75,6 @@
         .data-management { margin-top: 30px; text-align: center; }
         .hidden { display: none !important; }
         
-        /* 復元成功メッセージ用 */
         #recoveryMessage { display: none; background-color: rgba(0, 129, 58, 0.2); border: 1px solid var(--success); color: #8AFF8A; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; }
     </style>
 </head>
@@ -137,7 +141,7 @@
         <div class="form-group">
             <label for="prescribedDays"><i class="fas fa-calendar-check" style="color: var(--primary);"></i> 週契約日数（有給算定に必要）</label>
             <div class="input-with-unit" style="max-width: 250px;">
-                <select id="prescribedDays">
+                <select id="prescribedDays" onchange="updateMonthlyRates()">
                     <option value="" disabled selected>-</option>
                     <option value="1">1</option><option value="2">2</option><option value="3">3</option>
                     <option value="4">4</option><option value="5">5</option><option value="6">6</option>
@@ -194,7 +198,7 @@
 </div>
 
 <script>
-    const DB_NAME = 'sevenStaffDB_v12'; 
+    const DB_NAME = 'sevenStaffDB_v13'; 
     const STORE_SETTINGS_KEY = 'sevenStoreSettings_v3';
     let staffDatabase = [];
     let currentStaffId = null;
@@ -202,27 +206,24 @@
 
     // --- 自動復元スクリプト ---
     function autoRecoverData() {
-        // 現在のDB(v12)が空かどうかチェック
         let currentData = localStorage.getItem(DB_NAME);
         if (!currentData || currentData === "[]") {
-            // v11から順に過去のデータを探す
-            for (let i = 11; i >= 1; i--) {
+            for (let i = 12; i >= 1; i--) {
                 let oldVersionName = (i === 1) ? 'sevenStaffDB' : `sevenStaffDB_v${i}`;
                 let oldData = localStorage.getItem(oldVersionName);
                 if (oldData && oldData !== "[]") {
-                    // 古いデータが見つかったら、現在のDBに引き継ぐ
                     localStorage.setItem(DB_NAME, oldData);
                     const msgEl = document.getElementById('recoveryMessage');
                     msgEl.style.display = 'block';
                     msgEl.innerHTML = `<i class="fas fa-check-circle"></i> 過去のデータを発見し、自動復元に成功しました！`;
-                    return; // 見つかったらループ終了
+                    return; 
                 }
             }
         }
     }
 
     window.onload = () => {
-        autoRecoverData(); // 起動時に復元を試みる
+        autoRecoverData(); 
         staffDatabase = JSON.parse(localStorage.getItem(DB_NAME)) || [];
         
         loadStoreSettings();
@@ -231,6 +232,7 @@
         attachStoreSettingsListeners();
         toggleStaffType(); 
         toggleNightCalc();
+        updateMonthlyRates(); // 起動時に出勤率を計算
     };
 
     function formatTimeStr(start, end) {
@@ -306,22 +308,59 @@
         }
     }
 
+    // --- 追加機能：出勤率のリアルタイム計算と表示 ---
+    function updateMonthlyRates() {
+        const prescribedDays = parseInt(document.getElementById("prescribedDays").value) || 0;
+        // 月の所定労働日数 (週契約日数 × 約4.33週)
+        const monthlyPrescribedDays = prescribedDays * (52 / 12);
+
+        for (let i = 1; i <= 12; i++) {
+            const monthStr = String(i).padStart(2, '0');
+            const key = `${targetYear}-${monthStr}`;
+            const inputEl = document.getElementById(`month_${key}`);
+            const rateEl = document.getElementById(`rate_${key}`);
+            
+            if (inputEl && rateEl) {
+                if (prescribedDays > 0 && inputEl.value !== "") {
+                    const actualDays = parseInt(inputEl.value) || 0;
+                    const rate = (actualDays / monthlyPrescribedDays) * 100;
+                    
+                    rateEl.textContent = `出勤率: ${rate.toFixed(0)}%`;
+                    
+                    // 80%未満は赤字で警告、80%以上は緑
+                    if (rate >= 80) {
+                        rateEl.style.color = "var(--success)";
+                    } else {
+                        rateEl.style.color = "#FF6B6B"; // 明るい赤
+                    }
+                } else {
+                    rateEl.textContent = "--%";
+                    rateEl.style.color = "var(--text-sub)";
+                }
+            }
+        }
+    }
+
     function generateAttendanceGrid() {
         const grid = document.getElementById('attendanceGrid');
         grid.innerHTML = '';
         for (let i = 1; i <= 12; i++) {
             const monthStr = String(i).padStart(2, '0');
+            const key = `${targetYear}-${monthStr}`;
             const prevMonth = i === 1 ? 12 : i - 1;
             const dateRange = `(${prevMonth}/16〜${i}/15)`;
             const div = document.createElement('div');
             div.className = 'month-cell';
+            
+            // oninput で入力のたびに updateMonthlyRates() を呼び出すように設定
             div.innerHTML = `
                 <label><i class="fas fa-calendar-day"></i> ${i}月度</label>
                 <div class="date-range">${dateRange}</div>
                 <div class="input-with-unit">
-                    <input type="number" id="month_${targetYear}-${monthStr}" min="0" max="31">
+                    <input type="number" id="month_${key}" min="0" max="31" oninput="updateMonthlyRates()">
                     <span>日</span>
                 </div>
+                <div class="attendance-rate" id="rate_${key}">--%</div>
             `;
             grid.appendChild(div);
         }
@@ -369,6 +408,7 @@
             }
         }
         updateStaffDropdown();
+        updateMonthlyRates(); // 読み込み後に出勤率を再計算
     }
 
     function saveStaffData() {
@@ -424,6 +464,7 @@
             const inputEl = document.getElementById(`month_${targetYear}-${String(i).padStart(2, '0')}`);
             if (inputEl) inputEl.value = '';
         }
+        updateMonthlyRates(); // フォームクリア後に出勤率もクリア
     }
 
     function deleteStaff() {
