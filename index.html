@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>7-ELEVEN | Staff Management System Pro (出勤率表示版)</title>
+    <title>7-ELEVEN | Staff Management System Pro (累計給与・次回付与日対応)</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -47,8 +47,6 @@
         .month-cell .date-range { font-size: 11px; color: #888; margin-bottom: 8px; letter-spacing: -0.5px;}
         .month-cell .input-with-unit { justify-content: center; background-color: rgba(0,0,0,0.2); }
         .month-cell input { width: 45px; text-align: right; font-weight: 700; color: var(--text-main); padding: 8px 5px; font-size: 16px; }
-        
-        /* 出勤率表示用のスタイル */
         .attendance-rate { font-size: 12px; font-weight: bold; margin-top: 8px; color: var(--text-sub); }
 
         .main-buttons { display: flex; gap: 15px; margin-top: 10px; margin-bottom: 30px; }
@@ -58,6 +56,7 @@
         .btn-delete { background: linear-gradient(135deg, #F03541, var(--danger)); font-size: 14px; padding: 10px 20px; }
         .btn-export { background: linear-gradient(135deg, #78909C, #546E7A); width: 100%; margin-top: 10px; }
         .danger-zone { margin-top: 20px; display: flex; justify-content: flex-end; border-top: 1px dashed var(--border-color); padding-top: 20px; }
+        
         #resultArea { margin-top: 10px; display: none; }
         .result-details { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; }
         .detail-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2A2A2A; padding-bottom: 8px; font-size: 15px; }
@@ -198,7 +197,7 @@
 </div>
 
 <script>
-    const DB_NAME = 'sevenStaffDB_v13'; 
+    const DB_NAME = 'sevenStaffDB_v14'; 
     const STORE_SETTINGS_KEY = 'sevenStoreSettings_v3';
     let staffDatabase = [];
     let currentStaffId = null;
@@ -208,7 +207,7 @@
     function autoRecoverData() {
         let currentData = localStorage.getItem(DB_NAME);
         if (!currentData || currentData === "[]") {
-            for (let i = 12; i >= 1; i--) {
+            for (let i = 13; i >= 1; i--) {
                 let oldVersionName = (i === 1) ? 'sevenStaffDB' : `sevenStaffDB_v${i}`;
                 let oldData = localStorage.getItem(oldVersionName);
                 if (oldData && oldData !== "[]") {
@@ -225,14 +224,13 @@
     window.onload = () => {
         autoRecoverData(); 
         staffDatabase = JSON.parse(localStorage.getItem(DB_NAME)) || [];
-        
         loadStoreSettings();
         generateAttendanceGrid();
         updateStaffDropdown();
         attachStoreSettingsListeners();
         toggleStaffType(); 
         toggleNightCalc();
-        updateMonthlyRates(); // 起動時に出勤率を計算
+        updateMonthlyRates(); 
     };
 
     function formatTimeStr(start, end) {
@@ -308,10 +306,8 @@
         }
     }
 
-    // --- 追加機能：出勤率のリアルタイム計算と表示 ---
     function updateMonthlyRates() {
         const prescribedDays = parseInt(document.getElementById("prescribedDays").value) || 0;
-        // 月の所定労働日数 (週契約日数 × 約4.33週)
         const monthlyPrescribedDays = prescribedDays * (52 / 12);
 
         for (let i = 1; i <= 12; i++) {
@@ -324,15 +320,9 @@
                 if (prescribedDays > 0 && inputEl.value !== "") {
                     const actualDays = parseInt(inputEl.value) || 0;
                     const rate = (actualDays / monthlyPrescribedDays) * 100;
-                    
                     rateEl.textContent = `出勤率: ${rate.toFixed(0)}%`;
-                    
-                    // 80%未満は赤字で警告、80%以上は緑
-                    if (rate >= 80) {
-                        rateEl.style.color = "var(--success)";
-                    } else {
-                        rateEl.style.color = "#FF6B6B"; // 明るい赤
-                    }
+                    if (rate >= 80) { rateEl.style.color = "var(--success)"; } 
+                    else { rateEl.style.color = "#FF6B6B"; }
                 } else {
                     rateEl.textContent = "--%";
                     rateEl.style.color = "var(--text-sub)";
@@ -351,8 +341,6 @@
             const dateRange = `(${prevMonth}/16〜${i}/15)`;
             const div = document.createElement('div');
             div.className = 'month-cell';
-            
-            // oninput で入力のたびに updateMonthlyRates() を呼び出すように設定
             div.innerHTML = `
                 <label><i class="fas fa-calendar-day"></i> ${i}月度</label>
                 <div class="date-range">${dateRange}</div>
@@ -408,7 +396,7 @@
             }
         }
         updateStaffDropdown();
-        updateMonthlyRates(); // 読み込み後に出勤率を再計算
+        updateMonthlyRates(); 
     }
 
     function saveStaffData() {
@@ -464,7 +452,7 @@
             const inputEl = document.getElementById(`month_${targetYear}-${String(i).padStart(2, '0')}`);
             if (inputEl) inputEl.value = '';
         }
-        updateMonthlyRates(); // フォームクリア後に出勤率もクリア
+        updateMonthlyRates(); 
     }
 
     function deleteStaff() {
@@ -484,9 +472,11 @@
         const currentPto = parseFloat(document.getElementById("currentPto").value) || 0;
         const consumedPto = parseFloat(document.getElementById("consumedPto").value) || 0;
         
-        if (!hireDateStr || !prescribedDays) { alert("有給判定のため、「入社年月日」と「週契約日数」は必須です。"); return; }
+        if (!hireDateStr || !prescribedDays) { alert("「入社年月日」と「週契約日数」は必須です。"); return; }
 
-        let monthlySalary = 0; let breakdownHTML = "";
+        let monthlySalary = 0; 
+        let breakdownHTML = "";
+        let weeklySalaryTotal = 0;
 
         if (staffType === 'hourly') {
             const baseHourlyWage = parseInt(document.getElementById("hourlyWage").value) || 0;
@@ -521,8 +511,8 @@
             }
 
             const weeksPerMonth = 52 / 12; 
-            const weeklySalary = (regularHours * baseHourlyWage) + (earlyHours * earlyHourlyWage) + (nightHours * nightHourlyWage);
-            monthlySalary = Math.round(weeklySalary * weeksPerMonth);
+            weeklySalaryTotal = (regularHours * baseHourlyWage) + (earlyHours * earlyHourlyWage) + (nightHours * nightHourlyWage);
+            monthlySalary = Math.round(weeklySalaryTotal * weeksPerMonth);
 
             breakdownHTML = `<div class="breakdown-box"><div style="margin-bottom: 8px;"><i class="fas fa-info-circle"></i> <strong>【時給内訳と適用ルール】</strong></div><div style="margin-bottom: 4px;">■ 基本: <span>${baseHourlyWage}円</span> (${regularHours}h/週)</div><div style="margin-bottom: 4px; color: #A5D6A7;">■ 早朝: <span>${earlyHourlyWage}円</span> (${earlyHours}h/週) <span style="font-size:11px; color:#888;">[${storeEarlyTimeFormatted}]</span></div><div style="color: #90CAF9;">■ 深夜: <span>${nightHourlyWage}円</span> (${nightHours}h/週) <span style="font-size:11px; color:#888;">[${storeNightTimeFormatted}] ${nightMethodText}</span></div></div>`;
         } else {
@@ -533,22 +523,55 @@
 
         const annualSalary = monthlySalary * 12;
         const hireDate = new Date(hireDateStr);
-        let actualDays = 0; let displayTargetMonthsStr = "";
+        let actualDaysSum = 0; 
+        let displayTargetMonthsStr = "";
+        let activeMonthsCount = 0;
         
         for (let i = 0; i < 6; i++) {
             let d = new Date(hireDate.getFullYear(), hireDate.getMonth() + i, 1);
             let key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            actualDays += parseInt(document.getElementById('month_' + key)?.value || 0);
+            let val = document.getElementById('month_' + key)?.value;
+            let dVal = parseInt(val) || 0;
+            actualDaysSum += dVal;
             displayTargetMonthsStr += (i==0?"":", ") + (d.getMonth() + 1) + "月度";
         }
+
+        // --- 全入力済み日数を集計（累計給与用） ---
+        let totalEnteredDays = 0;
+        for (let i = 1; i <= 12; i++) {
+            let key = `${targetYear}-${String(i).padStart(2, '0')}`;
+            let val = document.getElementById('month_' + key)?.value;
+            if (val !== "" && val !== null && val !== undefined) {
+                totalEnteredDays += parseInt(val) || 0;
+                activeMonthsCount++;
+            }
+        }
+
+        // --- 概算累計給与の計算 ---
+        let cumulativePay = 0;
+        if (staffType === 'hourly') {
+            let dailyAverageSalary = prescribedDays > 0 ? weeklySalaryTotal / prescribedDays : 0;
+            cumulativePay = Math.round(dailyAverageSalary * totalEnteredDays);
+        } else {
+            cumulativePay = monthlySalary * activeMonthsCount;
+        }
         
+        // --- 有給判定ロジック ---
         const grantDate = new Date(hireDate); grantDate.setMonth(grantDate.getMonth() + 6);
         const deadlineDate = new Date(grantDate); deadlineDate.setFullYear(deadlineDate.getFullYear() + 1); deadlineDate.setDate(deadlineDate.getDate() - 1);
         const totalPrescribedDays = prescribedDays * 26; 
-        let attendanceRate = totalPrescribedDays > 0 ? actualDays / totalPrescribedDays : 0;
+        let attendanceRate = totalPrescribedDays > 0 ? actualDaysSum / totalPrescribedDays : 0;
         const ptoTable = [0, 1, 3, 5, 7, 10, 10]; 
         let grantedDays = (attendanceRate >= 0.8) ? ptoTable[Math.min(prescribedDays, 6)] : 0;
         let totalPtoBalance = currentPto + grantedDays;
+
+        // --- 次回有給付与日の算出（現在日時ベース） ---
+        const today = new Date();
+        let nextGrantDate = new Date(hireDate);
+        nextGrantDate.setMonth(nextGrantDate.getMonth() + 6); // 初回付与日
+        while (nextGrantDate <= today) {
+            nextGrantDate.setFullYear(nextGrantDate.getFullYear() + 1); // 以降は1年ごと
+        }
 
         let alertsHTML = "";
         if (grantedDays >= 10) {
@@ -567,9 +590,15 @@
             <div class="card result-card fade-in">
                 <h2><i class="fas fa-chart-line"></i> 計算・判定結果</h2>
                 <div class="result-details">
-                    <div class="detail-item"><strong>有給基準日 (付与日)</strong><span><i class="fas fa-calendar-star"></i> ${grantDate.toLocaleDateString()}</span></div>
-                    <div class="detail-item" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-top: 5px;">
-                        <strong style="color:var(--text-main);">今回の有給付与判定</strong>
+                    <div class="detail-item"><strong>有給基準日 (初回の付与判定)</strong><span><i class="fas fa-flag"></i> ${grantDate.toLocaleDateString()}</span></div>
+                    
+                    <div class="detail-item" style="border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 5px;">
+                        <strong>次回の有給付与タイミング <br><span style="font-size:12px; font-weight:normal; color:#888;">(本日からの直近付与予定日)</span></strong>
+                        <span><i class="fas fa-gift" style="color:var(--accent);"></i> ${nextGrantDate.toLocaleDateString()}</span>
+                    </div>
+
+                    <div class="detail-item" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-top: 15px;">
+                        <strong style="color:var(--text-main);">今回判定期間での付与日数</strong>
                         ${grantedDays > 0 ? `<span class='result-success-text'><i class="fas fa-thumbs-up"></i> ${grantedDays}日 付与</span>` : `<span class='result-alert-text'><i class="fas fa-times-circle"></i> 付与なし</span>`}
                     </div>
                     <div class="detail-item" style="font-size:12px; border:none; padding-bottom:5px; padding-top:0;"><strong>(判定根拠: 対象期間 ${displayTargetMonthsStr})</strong><span style="color:#777;">出勤率: ${(attendanceRate*100).toFixed(1)}%</span></div>
@@ -577,8 +606,15 @@
                         <strong>次回の「総」有給保有日数 <br><span style="font-size:12px; font-weight:normal; color:#888;">(残 ${currentPto}日 ＋ 付与 ${grantedDays}日)</span></strong>
                         <span style="color:var(--accent); font-size: 18px; font-weight: 700;">${totalPtoBalance} 日</span>
                     </div>
+                    
                     ${breakdownHTML}
-                    <div class="detail-item" style="margin-top: 10px;"><strong>月間人件費 (推定)</strong><span class="value">${monthlySalary.toLocaleString()} 円</span></div>
+                    
+                    <div class="detail-item" style="margin-top: 15px; border-left: 3px solid var(--success); padding-left: 10px;">
+                        <strong>入力済み実績からの概算給与累計 <br><span style="font-size:12px; font-weight:normal; color:#888;">(入力済み計 ${totalEnteredDays}日 / ${activeMonthsCount}ヶ月分ベース)</span></strong>
+                        <span style="color: var(--success); font-size: 18px; font-weight: 700;">${cumulativePay.toLocaleString()} 円</span>
+                    </div>
+
+                    <div class="detail-item" style="margin-top: 10px;"><strong>月間人件費 (基準予測)</strong><span class="value">${monthlySalary.toLocaleString()} 円</span></div>
                     <div class="detail-item"><strong>年間人件費 (累計予測)</strong><span class="value">${annualSalary.toLocaleString()} 円</span></div>
                 </div>
                 ${alertsHTML ? `<div class="alerts-section">${alertsHTML}</div>` : `<div class="alert-item alert-success fade-in"><i class="fas fa-check-circle"></i> 法令基準・年収の壁に関する警告はありません。</div>`}
