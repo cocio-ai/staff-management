@@ -49,12 +49,10 @@
         input, select { width: 100%; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid transparent; border-radius: 8px; color: var(--text-main); font-family: var(--font-family); font-size: 16px; box-sizing: border-box; transition: var(--transition); }
         input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.2); }
 
-        /* --- Scroll Time Picker Style --- */
         .time-range { display: flex; align-items: center; gap: 10px; background-color: var(--input-bg); padding: 5px; border-radius: 8px; border: 1px solid transparent; transition: var(--transition); }
         .time-range:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.2); }
         .time-range input[type="time"] { flex: 1; padding: 8px; text-align: center; border: none; background: transparent; font-size: 16px; color: var(--text-main); cursor: pointer; }
         .time-range input[type="time"]:focus { box-shadow: none; }
-        /* iOSのtimeインプット用のデザイン調整 */
         input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 
         .radio-group { display: flex; gap: 15px; background: var(--input-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid #444; }
@@ -84,11 +82,12 @@
         .input-with-unit span { font-size: 14px; color: var(--text-sub); font-weight: 600; user-select: none; }
 
         .monthly-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; }
-        .month-cell { background-color: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid #2A2A2A; text-align: center; transition: var(--transition); }
+        .month-cell { background-color: rgba(255,255,255,0.03); padding: 12px 10px; border-radius: 8px; border: 1px solid #2A2A2A; text-align: center; transition: var(--transition); }
         .month-cell:hover { background-color: rgba(255,255,255,0.06); border-color: #333; transform: translateY(-3px); }
-        .month-cell label { justify-content: center; color: var(--primary); font-size: 13px; margin-bottom: 10px; }
+        .month-cell label { justify-content: center; color: var(--primary); font-size: 13px; margin-bottom: 2px; }
+        .month-cell .date-range { font-size: 11px; color: #888; margin-bottom: 8px; letter-spacing: -0.5px;}
         .month-cell .input-with-unit { justify-content: center; background-color: rgba(0,0,0,0.2); }
-        .month-cell input { width: 50px; text-align: right; font-weight: 700; color: var(--text-main); padding: 8px; font-size: 16px; }
+        .month-cell input { width: 45px; text-align: right; font-weight: 700; color: var(--text-main); padding: 8px 5px; font-size: 16px; }
 
         /* --- Buttons --- */
         .main-buttons { display: flex; gap: 15px; margin-top: 10px; margin-bottom: 30px; }
@@ -299,7 +298,7 @@
     </div>
 
     <div class="card">
-        <h2><i class="fas fa-calendar-grid-5"></i> 2026年の出勤実績（有給判定用）</h2>
+        <h2><i class="fas fa-calendar-grid-5"></i> 2026年の出勤実績（有給判定用：15日締め）</h2>
         <div class="monthly-grid" id="attendanceGrid"></div>
     </div>
 
@@ -321,8 +320,8 @@
 </div>
 
 <script>
-    // データベース設定 (時間のデータ構造が変わるためバージョンアップ)
-    const DB_NAME = 'sevenStaffDB_v11'; 
+    // バージョン更新
+    const DB_NAME = 'sevenStaffDB_v12'; 
     const STORE_SETTINGS_KEY = 'sevenStoreSettings_v3';
     let staffDatabase = JSON.parse(localStorage.getItem(DB_NAME)) || [];
     let currentStaffId = null;
@@ -337,12 +336,10 @@
         toggleNightCalc();
     };
 
-    // --- 「翌日」自動判定フォーマット関数 ---
     function formatTimeStr(start, end) {
         if (!start || !end) return "未設定";
         let startHour = parseInt(start.split(':')[0], 10);
         let endHour = parseInt(end.split(':')[0], 10);
-        // 終わりの時間が始まりの時間より小さい場合（例: 22時〜6時）、自動で「翌」をつける
         let prefix = (endHour < startHour) ? "翌" : "";
         return `${start}〜${prefix}${end}`;
     }
@@ -415,7 +412,6 @@
         });
     }
 
-    // --- UI切り替え ---
     function toggleStaffType() {
         const type = document.querySelector('input[name="staffType"]:checked').value;
         const hourlyFields = document.getElementById('hourlyFields');
@@ -428,13 +424,26 @@
         }
     }
 
+    // --- 【修正】15日締めの表記を生成 ---
     function generateAttendanceGrid() {
         const grid = document.getElementById('attendanceGrid');
         grid.innerHTML = '';
         for (let i = 1; i <= 12; i++) {
+            const monthStr = String(i).padStart(2, '0');
+            // 前月の計算（1月の前月は12月）
+            const prevMonth = i === 1 ? 12 : i - 1;
+            const dateRange = `(${prevMonth}/16〜${i}/15)`;
+
             const div = document.createElement('div');
             div.className = 'month-cell';
-            div.innerHTML = `<label><i class="fas fa-calendar-day"></i> ${i}月</label><div class="input-with-unit"><input type="number" id="month_${targetYear}-${String(i).padStart(2, '0')}" min="0" max="31"><span>日</span></div>`;
+            div.innerHTML = `
+                <label><i class="fas fa-calendar-day"></i> ${i}月度</label>
+                <div class="date-range">${dateRange}</div>
+                <div class="input-with-unit">
+                    <input type="number" id="month_${targetYear}-${monthStr}" min="0" max="31">
+                    <span>日</span>
+                </div>
+            `;
             grid.appendChild(div);
         }
     }
@@ -574,7 +583,6 @@
         let monthlySalary = 0;
         let breakdownHTML = "";
 
-        // 人件費計算
         if (staffType === 'hourly') {
             const baseHourlyWage = parseInt(document.getElementById("hourlyWage").value) || 0;
             const weeklyHours = parseFloat(document.getElementById("weeklyHours").value) || 0;
@@ -590,7 +598,6 @@
                 alert("エラー：早朝時間と深夜時間の合計が、週の合計時間を超えています。"); return;
             }
 
-            // 店舗設定の取得とフォーマット
             const eStart = document.getElementById('storeEarlyTimeStart').value;
             const eEnd = document.getElementById('storeEarlyTimeEnd').value;
             const nStart = document.getElementById('storeNightTimeStart').value;
@@ -602,7 +609,6 @@
             const storeEarlyBonus = parseFloat(document.getElementById("storeEarlyBonus").value) || 0;
             const nightCalcMethod = document.querySelector('input[name="nightCalcMethod"]:checked').value;
             
-            // 時給の決定
             const earlyHourlyWage = baseHourlyWage + storeEarlyBonus;
             let nightHourlyWage = baseHourlyWage;
             let nightMethodText = "";
@@ -646,7 +652,7 @@
             let d = new Date(hireDate.getFullYear(), hireDate.getMonth() + i, 1);
             let key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             actualDays += parseInt(document.getElementById('month_' + key)?.value || 0);
-            displayTargetMonthsStr += (i==0?"":", ") + (d.getMonth() + 1) + "月";
+            displayTargetMonthsStr += (i==0?"":", ") + (d.getMonth() + 1) + "月度"; // 表記を「月度」に変更
         }
         
         const grantDate = new Date(hireDate); grantDate.setMonth(grantDate.getMonth() + 6);
@@ -658,7 +664,6 @@
         let grantedDays = (attendanceRate >= 0.8) ? ptoTable[Math.min(prescribedDays, 6)] : 0;
         let totalPtoBalance = currentPto + grantedDays;
 
-        // アラート生成
         let alertsHTML = "";
         if (grantedDays >= 10) {
             let remain = 5 - consumedPto;
@@ -721,7 +726,8 @@
         if (staffDatabase.length === 0) { alert("データがありません。"); return; }
         
         const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); 
-        let csvContent = "名前,雇用形態,入社日,週契約日数,基本時給,週合計時間,うち早朝時間,うち深夜時間,固定月給,現在の有給残日数,今期有休消化済,1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月\n";
+        // CSVヘッダーも「月度」表記に変更
+        let csvContent = "名前,雇用形態,入社日,週契約日数,基本時給,週合計時間,うち早朝時間,うち深夜時間,固定月給,現在の有給残日数,今期有休消化済,1月度,2月度,3月度,4月度,5月度,6月度,7月度,8月度,9月度,10月度,11月度,12月度\n";
         
         staffDatabase.forEach(s => {
             const typeLabel = s.staffType === 'salaried' ? '固定給' : '時給';
