@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>7-ELEVEN | Staff Management System Pro (累計給与・次回付与日対応)</title>
+    <title>7-ELEVEN | Staff Management System Pro (勤続年数・労基法準拠版)</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -197,7 +197,7 @@
 </div>
 
 <script>
-    const DB_NAME = 'sevenStaffDB_v14'; 
+    const DB_NAME = 'sevenStaffDB_v15'; 
     const STORE_SETTINGS_KEY = 'sevenStoreSettings_v3';
     let staffDatabase = [];
     let currentStaffId = null;
@@ -207,7 +207,7 @@
     function autoRecoverData() {
         let currentData = localStorage.getItem(DB_NAME);
         if (!currentData || currentData === "[]") {
-            for (let i = 13; i >= 1; i--) {
+            for (let i = 14; i >= 1; i--) {
                 let oldVersionName = (i === 1) ? 'sevenStaffDB' : `sevenStaffDB_v${i}`;
                 let oldData = localStorage.getItem(oldVersionName);
                 if (oldData && oldData !== "[]") {
@@ -469,6 +469,8 @@
         const hireDateStr = document.getElementById("hireDate").value;
         const staffType = document.querySelector('input[name="staffType"]:checked').value;
         const prescribedDays = parseInt(document.getElementById("prescribedDays").value) || 0;
+        const weeklyHoursStr = document.getElementById("weeklyHours").value;
+        const weeklyHours = parseFloat(weeklyHoursStr) || 0;
         const currentPto = parseFloat(document.getElementById("currentPto").value) || 0;
         const consumedPto = parseFloat(document.getElementById("consumedPto").value) || 0;
         
@@ -480,7 +482,6 @@
 
         if (staffType === 'hourly') {
             const baseHourlyWage = parseInt(document.getElementById("hourlyWage").value) || 0;
-            const weeklyHours = parseFloat(document.getElementById("weeklyHours").value) || 0;
             const earlyHours = parseFloat(document.getElementById("earlyHours").value) || 0;
             const nightHours = parseFloat(document.getElementById("nightHours").value) || 0;
             if (!baseHourlyWage || !weeklyHours) { alert("時給スタッフの場合、「基本時給」と「週の合計時間」は必須です。"); return; }
@@ -536,7 +537,6 @@
             displayTargetMonthsStr += (i==0?"":", ") + (d.getMonth() + 1) + "月度";
         }
 
-        // --- 全入力済み日数を集計（累計給与用） ---
         let totalEnteredDays = 0;
         for (let i = 1; i <= 12; i++) {
             let key = `${targetYear}-${String(i).padStart(2, '0')}`;
@@ -547,7 +547,6 @@
             }
         }
 
-        // --- 概算累計給与の計算 ---
         let cumulativePay = 0;
         if (staffType === 'hourly') {
             let dailyAverageSalary = prescribedDays > 0 ? weeklySalaryTotal / prescribedDays : 0;
@@ -556,29 +555,65 @@
             cumulativePay = monthlySalary * activeMonthsCount;
         }
         
-        // --- 有給判定ロジック ---
-        const grantDate = new Date(hireDate); grantDate.setMonth(grantDate.getMonth() + 6);
-        const deadlineDate = new Date(grantDate); deadlineDate.setFullYear(deadlineDate.getFullYear() + 1); deadlineDate.setDate(deadlineDate.getDate() - 1);
-        const totalPrescribedDays = prescribedDays * 26; 
-        let attendanceRate = totalPrescribedDays > 0 ? actualDaysSum / totalPrescribedDays : 0;
-        const ptoTable = [0, 1, 3, 5, 7, 10, 10]; 
-        let grantedDays = (attendanceRate >= 0.8) ? ptoTable[Math.min(prescribedDays, 6)] : 0;
-        let totalPtoBalance = currentPto + grantedDays;
-
-        // --- 次回有給付与日の算出（現在日時ベース） ---
+        // --- ★勤続年数と法定有給日数の計算 (労基法完全準拠) ★ ---
         const today = new Date();
         let nextGrantDate = new Date(hireDate);
-        nextGrantDate.setMonth(nextGrantDate.getMonth() + 6); // 初回付与日
+        nextGrantDate.setMonth(nextGrantDate.getMonth() + 6); // 初回付与日(0.5年)
+        let yearsIndex = 0; // 0=0.5年, 1=1.5年, 2=2.5年...
+        
+        // 本日（システム利用日）から見て、直近の「次の付与日」を割り出す
         while (nextGrantDate <= today) {
-            nextGrantDate.setFullYear(nextGrantDate.getFullYear() + 1); // 以降は1年ごと
+            nextGrantDate.setFullYear(nextGrantDate.getFullYear() + 1);
+            yearsIndex++;
+        }
+        
+        // 上限は6.5年以上（配列のインデックス6）
+        let displayYearsIndex = Math.min(yearsIndex, 6);
+        let serviceYearsLabel = yearsIndex === 0 ? "0.5年(6ヶ月)" : `${yearsIndex + 0.5}年`;
+
+        // 法定の付与日数テーブル
+        // 1. 通常付与（週30時間以上、または週5日以上）
+        const regularPtoTable = [10, 11, 12, 14, 16, 18, 20];
+        
+        // 2. 比例付与（週4日以下 かつ 週30時間未満）
+        const proportionalPtoTable = {
+            4: [7, 8, 9, 10, 12, 13, 15],
+            3: [5, 6, 6, 8, 9, 10, 11],
+            2: [3, 4, 4, 5, 6, 6, 7],
+            1: [1, 2, 2, 2, 3, 3, 3]
+        };
+
+        let baseGrantedDays = 0;
+        let grantTypeLabel = "";
+
+        if (staffType === 'salaried' || prescribedDays >= 5 || weeklyHours >= 30) {
+            baseGrantedDays = regularPtoTable[displayYearsIndex];
+            grantTypeLabel = "通常付与";
+        } else {
+            let pDays = Math.min(Math.max(prescribedDays, 1), 4);
+            baseGrantedDays = proportionalPtoTable[pDays][displayYearsIndex];
+            grantTypeLabel = `比例付与(週${pDays}日)`;
         }
 
+        // 出勤率80%以上で付与
+        const totalPrescribedDays = prescribedDays * 26; 
+        let attendanceRate = totalPrescribedDays > 0 ? actualDaysSum / totalPrescribedDays : 0;
+        let grantedDays = (attendanceRate >= 0.8) ? baseGrantedDays : 0;
+        let totalPtoBalance = currentPto + grantedDays;
+
+        // --- 次回付与が10日以上の場合の消化義務アラート算出 ---
+        const deadlineDate = new Date(nextGrantDate); 
+        deadlineDate.setFullYear(deadlineDate.getFullYear() + 1); 
+        deadlineDate.setDate(deadlineDate.getDate() - 1);
+
         let alertsHTML = "";
+        // もし「今回」付与された日数が10日以上だった場合のみアラート対象
         if (grantedDays >= 10) {
             let remain = 5 - consumedPto;
             if (remain > 0) alertsHTML += `<div class='alert-item alert-danger fade-in'><i class="fas fa-exclamation-triangle"></i><div>[労働基準法違反のリスク]<br>10日以上の有給付与対象者です。期限【 ${deadlineDate.toLocaleDateString()} 】までに、あと【 ${remain} 日 】の有休消化が必要です。</div></div>`;
             else alertsHTML += `<div class='alert-item alert-success fade-in'><i class="fas fa-check-circle"></i>✅ 有休消化義務(5日)をクリアしています。</div>`;
         }
+        
         if (staffType === 'hourly') {
             if (annualSalary >= 1230000 && annualSalary < 1300000) alertsHTML += `<div class='alert-item alert-warning fade-in'><i class="fas fa-percent"></i><div>[税金の壁] 年収予測が約123万円です。<br>学生扶養控除枠または配偶者特別控除の壁を超過し、世帯の手取りが減る可能性があります。</div></div>`;
             if (annualSalary >= 1300000) alertsHTML += `<div class='alert-item alert-danger fade-in'><i class="fas fa-heartbeat"></i><div>[社保の壁] 年収予測が130万円を超過しています。<br>社会保険の扶養から外れ、自身で保険料を支払う必要が生じる可能性が非常に高いです。</div></div>`;
@@ -590,18 +625,19 @@
             <div class="card result-card fade-in">
                 <h2><i class="fas fa-chart-line"></i> 計算・判定結果</h2>
                 <div class="result-details">
-                    <div class="detail-item"><strong>有給基準日 (初回の付与判定)</strong><span><i class="fas fa-flag"></i> ${grantDate.toLocaleDateString()}</span></div>
-                    
                     <div class="detail-item" style="border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 5px;">
-                        <strong>次回の有給付与タイミング <br><span style="font-size:12px; font-weight:normal; color:#888;">(本日からの直近付与予定日)</span></strong>
+                        <strong>次回の有給付与タイミング <br><span style="font-size:12px; font-weight:normal; color:#888;">(次回で勤続 ${serviceYearsLabel} 目)</span></strong>
                         <span><i class="fas fa-gift" style="color:var(--accent);"></i> ${nextGrantDate.toLocaleDateString()}</span>
                     </div>
 
                     <div class="detail-item" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-top: 15px;">
-                        <strong style="color:var(--text-main);">今回判定期間での付与日数</strong>
-                        ${grantedDays > 0 ? `<span class='result-success-text'><i class="fas fa-thumbs-up"></i> ${grantedDays}日 付与</span>` : `<span class='result-alert-text'><i class="fas fa-times-circle"></i> 付与なし</span>`}
+                        <strong style="color:var(--text-main);">次回付与時の「法定付与日数」</strong>
+                        ${grantedDays > 0 ? `<span class='result-success-text'><i class="fas fa-thumbs-up"></i> ${grantedDays}日 付与</span>` : `<span class='result-alert-text'><i class="fas fa-times-circle"></i> 出勤率不足（0日）</span>`}
                     </div>
-                    <div class="detail-item" style="font-size:12px; border:none; padding-bottom:5px; padding-top:0;"><strong>(判定根拠: 対象期間 ${displayTargetMonthsStr})</strong><span style="color:#777;">出勤率: ${(attendanceRate*100).toFixed(1)}%</span></div>
+                    <div class="detail-item" style="font-size:12px; border:none; padding-bottom:5px; padding-top:0;">
+                        <strong>(根拠: ${grantTypeLabel} / 対象期間 ${displayTargetMonthsStr})</strong>
+                        <span style="color:#777;">出勤率: ${(attendanceRate*100).toFixed(1)}%</span>
+                    </div>
                     <div class="detail-item" style="border-bottom: 2px solid #444; padding-bottom: 15px; margin-top: 10px;">
                         <strong>次回の「総」有給保有日数 <br><span style="font-size:12px; font-weight:normal; color:#888;">(残 ${currentPto}日 ＋ 付与 ${grantedDays}日)</span></strong>
                         <span style="color:var(--accent); font-size: 18px; font-weight: 700;">${totalPtoBalance} 日</span>
